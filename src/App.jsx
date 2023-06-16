@@ -141,7 +141,7 @@ function DarkModeBtn({ theme, onClick }) {
 
     return (
         <div className='theme-btn' onClick={onClick}>
-            <span>{theme === 'light' ? '☀️' : '🌒'}</span>
+            <span>{theme === 'light' ? '🌒' : '☀️'}</span>
         </div>
     );
 }
@@ -149,19 +149,51 @@ function DarkModeBtn({ theme, onClick }) {
 export default function App() {
     const [data, setData] = useState(null);
     const [currentId, setId] = useState(0);
-    const [theme, setTheme] = useState('light');
+
+    function getDefaultTheme() {
+        const localStorageTheme = localStorage.getItem('theme');
+        const browserDefault = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        return localStorageTheme || browserDefault;
+    }
+
+    const [theme, setTheme] = useState(getDefaultTheme());
+    document.documentElement.setAttribute("data-theme", theme);
 
     const switchTheme = () => {
-        const newTheme = theme === 'light' ? 'dark' : 'light';
-        setTheme(newTheme);
-        localStorage.setItem("theme", theme);
+        const isThemeDark = theme === 'dark';
+        setTheme(isThemeDark  ? 'light' : 'dark');
+        localStorage.setItem('theme', isThemeDark  ? 'light' : 'dark');
         document.documentElement.setAttribute("data-theme", theme);
     }
 
+    // Default Geolocation: New York
+    let latitude = 40.71;
+    let longitude = -74.01;
+
+    if (navigator.geolocation) {
+        // Geolocation is supported
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                // Success callback
+                latitude = (position.coords.latitude).toFixed(2);
+                longitude = (position.coords.longitude).toFixed(2);
+            },
+            (error) => {
+                // Error callback
+                console.error("Error getting position:", error);
+            }
+        );
+
+    } else {
+        // Geolocation is not supported
+        throw new Error('Geolocation is not supported on your browser');
+    }
+
     useEffect(() => {
+
         const fetchData = async () => {
             try {
-                const url = "https://api.open-meteo.com/v1/forecast?latitude=40.71&longitude=-74.01&hourly=temperature_2m,precipitation_probability,weathercode,windspeed_10m,winddirection_10m&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_probability_max,windspeed_10m_max,winddirection_10m_dominant&current_weather=true&windspeed_unit=ms&timeformat=unixtime&timezone=auto";
+                const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&hourly=temperature_2m,precipitation_probability,weathercode,windspeed_10m,winddirection_10m&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_probability_max,windspeed_10m_max,winddirection_10m_dominant&current_weather=true&windspeed_unit=ms&timeformat=unixtime&timezone=auto`;
                 const response = await fetch(url);
                 const data = await response.json();
                 setData(data);
@@ -178,6 +210,10 @@ export default function App() {
 
     return (
         <div className='wrapper'>
+            <h3>
+                {data?.timezone.match(/\/(.*)/)[1].replace(/_/g, ' ') + ' / '
+                + new Date(data?.current_weather?.time * 1000).toUTCString()}
+            </h3>
             <Header data={data}/>
             <DailyCards data={data?.daily} handleId={handleId}/>
             <HourlySection data={data?.hourly} id={currentId}/>
